@@ -1,0 +1,4 @@
+timestamp,node_id,location,rainfall_mm_h,temperature_c,humidity_pct,soil_moisture_pct,water_level_m,wind_speed_m_s,smoke_level,gas_level,soil_stability,rate_of_rise_m_h,trend,risk_score,risk_level,hazard_state,event_state,network_status,edge_processing
+2026-09-08 13:00:00,FLOOD_NODE_01,River Zone A,45,28,82,70,2.5,0.0,0.0,0.0,0.85,0.4,RISING,45,MEDIUM,DEVELOPING,NORMAL,ONLINE,ACTIVE
+2026-09-08 13:05:00,FLOOD_NODE_01,River Zone A,95,27,90,92,4.3,0.0,0.0,0.0,0.45,1.8,RISING,92,CRITICAL,CRITICAL,ACTIVE,OFFLINE,ACTIVE
+2026-09-08T13:33:25.706515,FLOOD_NODE_01,River Zone A,55.0,28.0,90.0,78.0,3.2,4.5,0.0,0.0,0.72,0.8,RISING,82.0,HIGH,DEVELOPING,ACTIVE,ONLINE,ACTIVE
