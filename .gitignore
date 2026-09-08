@@ -1,8 +1,14 @@
 .venv/
+venv/
+
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
 .env
 .pytest_cache/
+.vscode/
+
 storage/buffered_events.json
+data/sensor_data.csv
