@@ -1,6 +1,6 @@
 """
 Environmental Intelligence Network
-----------------------------------
+-----------------------------------
 
 Stage-1 simulation runner for the Environmental Intelligence Network.
 
@@ -22,9 +22,9 @@ Architecture:
             ↓
     NetworkSimulator
        ↙          ↘
- ONLINE          OFFLINE
-   ↓                ↓
- CSVLogger      EventBuffer
+    ONLINE       OFFLINE
+      ↓             ↓
+   CSVLogger    EventBuffer
                     ↓
               Network restored
                     ↓
@@ -46,48 +46,41 @@ from intelligence.temporal_engine import TemporalEngine
 from intelligence.sensor_fusion import SensorFusion
 from intelligence.risk_engine import RiskEngine
 
-from communication.event_manager import EventManager
 from communication.network_simulator import NetworkSimulator
 from communication.event_buffer import EventBuffer
+from communication.event_manager import EventManager
 
 from data.csv_logger import CSVLogger
 
 
 class EnvironmentalIntelligenceNetwork:
     """
-    Main simulation controller.
+    Main Stage-1 environmental intelligence simulation.
 
-    Responsibilities:
-        - Maintain virtual monitoring nodes
-        - Generate environmental conditions
-        - Run flood simulation
-        - Perform local temporal analysis
-        - Perform sensor fusion
-        - Generate local risk decisions
-        - Manage hazard events
-        - Simulate network failures
-        - Buffer actionable events while offline
-        - Synchronize buffered events after recovery
-        - Store simulation records in CSV
+    Five virtual monitoring nodes are processed independently.
+
+    The system demonstrates:
+
+        1. Environmental sensing
+        2. Flood condition generation
+        3. Temporal analysis
+        4. Multi-parameter sensor fusion
+        5. Local risk inference
+        6. Event management
+        7. Network resilience
+        8. Offline event buffering
+        9. Store-and-forward synchronization
+        10. CSV logging
     """
 
-    # One simulation step represents one simulated hour.
     TIME_STEP_HOURS = 1.0
 
     def __init__(self):
-
-        print("=" * 80)
-        print("ENVIRONMENTAL INTELLIGENCE NETWORK")
-        print("Offline-First Multi-Hazard Intelligence Simulation")
-        print("=" * 80)
-
         # ---------------------------------------------------------
-        # Simulation clock
+        # SIMULATION CLOCK
         # ---------------------------------------------------------
 
-        now = datetime.now()
-
-        self.simulation_time = now.replace(
+        self.simulation_time = datetime.now().replace(
             minute=0,
             second=0,
             microsecond=0,
@@ -96,7 +89,7 @@ class EnvironmentalIntelligenceNetwork:
         self.step_number = 0
 
         # ---------------------------------------------------------
-        # Intelligence modules
+        # INTELLIGENCE COMPONENTS
         # ---------------------------------------------------------
 
         self.temporal_engine = TemporalEngine(
@@ -108,7 +101,7 @@ class EnvironmentalIntelligenceNetwork:
         self.risk_engine = RiskEngine()
 
         # ---------------------------------------------------------
-        # Communication and resilience modules
+        # COMMUNICATION / RESILIENCE
         # ---------------------------------------------------------
 
         self.network = NetworkSimulator()
@@ -118,54 +111,51 @@ class EnvironmentalIntelligenceNetwork:
         self.event_buffer = EventBuffer()
 
         # ---------------------------------------------------------
-        # Data logger
+        # DATA STORAGE
         # ---------------------------------------------------------
 
         self.csv_logger = CSVLogger(
-            file_path="data/sensor_data.csv"
+            "data/sensor_data.csv"
         )
 
         # ---------------------------------------------------------
-        # Virtual monitoring nodes
-        #
-        # A = upstream
-        # B = downstream
-        # C = village/community
-        # D = lower-risk area
-        # E = critical/community location
+        # VIRTUAL NODES
         # ---------------------------------------------------------
 
         self.nodes = [
             VirtualNode(
                 node_id="A",
-                location="Upstream"
+                location="Upstream",
+                water_level_m=0.60,
             ),
 
             VirtualNode(
                 node_id="B",
-                location="Downstream"
+                location="Downstream",
+                water_level_m=0.50,
             ),
 
             VirtualNode(
                 node_id="C",
-                location="Village"
+                location="Village",
+                water_level_m=0.40,
             ),
 
             VirtualNode(
                 node_id="D",
-                location="Low-Risk Area"
+                location="Low-Risk Area",
+                water_level_m=0.30,
             ),
 
             VirtualNode(
                 node_id="E",
-                location="Critical Community"
+                location="Critical Community",
+                water_level_m=0.70,
             ),
         ]
 
         # ---------------------------------------------------------
-        # Independent environmental generators
-        #
-        # Each node receives its own slowly changing environment.
+        # ENVIRONMENT GENERATORS
         # ---------------------------------------------------------
 
         self.environments = {
@@ -177,10 +167,7 @@ class EnvironmentalIntelligenceNetwork:
         }
 
         # ---------------------------------------------------------
-        # Flood engines
-        #
-        # Different starting levels make the virtual locations
-        # behave differently.
+        # FLOOD ENGINES
         # ---------------------------------------------------------
 
         self.flood_engines = {
@@ -192,16 +179,19 @@ class EnvironmentalIntelligenceNetwork:
         }
 
         # ---------------------------------------------------------
-        # Scenario control
+        # SCENARIO CONTROL
         # ---------------------------------------------------------
 
         self.rainstorm_active = False
 
-        print()
-        print("Initialized 5 virtual monitoring nodes.")
-        print("Simulation timestep: 1 hour")
-        print("Network status: ONLINE")
-        print()
+        # Controlled Stage-1 demonstration scenario.
+        #
+        # NORMAL
+        # DEVELOPING
+        # SEVERE
+        # CRITICAL
+        # RECOVERY
+        self.scenario_phase = "NORMAL"
 
     # =============================================================
     # NETWORK CONTROL
@@ -211,48 +201,58 @@ class EnvironmentalIntelligenceNetwork:
         """
         Restore network connectivity.
 
-        Any actionable events stored during the offline period
-        are synchronized immediately.
+        Any events accumulated while offline are synchronized.
         """
 
         was_offline = not self.network.is_online()
 
         self.network.turn_on()
 
+        for node in self.nodes:
+            node.network_status = "ONLINE"
+
         print()
-        print("[NETWORK] NETWORK ONLINE")
-        print("[NETWORK] EDGE PROCESSING ACTIVE")
+        print("=" * 80)
+        print("NETWORK RESTORED")
+        print("ONLINE")
+        print("Edge processing remains active.")
+        print("=" * 80)
 
         if was_offline:
             self.synchronize_buffer()
+
+        print()
 
     def network_off(self):
         """
         Simulate network failure.
 
-        Local sensing and local intelligence continue operating.
+        Local edge processing continues and actionable events
+        are buffered locally.
         """
 
         self.network.turn_off()
 
-        print()
-        print("[NETWORK] NETWORK OFFLINE")
-        print("[NETWORK] EDGE PROCESSING ACTIVE")
-        print("[NETWORK] LOCAL ALERTS ACTIVE")
-        print()
+        for node in self.nodes:
+            node.network_status = "OFFLINE"
 
-    def is_network_online(self):
-        """Return True when the simulated network is online."""
-
-        return self.network.is_online()
+        print()
+        print("=" * 80)
+        print("NETWORK FAILURE SIMULATED")
+        print("NETWORK OFFLINE")
+        print("EDGE PROCESSING ACTIVE")
+        print("LOCAL ALERTS ACTIVE")
+        print("ACTIONABLE EVENTS WILL BE BUFFERED")
+        print("=" * 80)
+        print()
 
     # =============================================================
-    # SCENARIO CONTROL
+    # RAINSTORM CONTROL
     # =============================================================
 
     def start_rainstorm(self):
         """
-        Start a heavy-rain scenario across all flood engines.
+        Start rainstorm mode in all flood engines.
         """
 
         self.rainstorm_active = True
@@ -288,6 +288,109 @@ class EnvironmentalIntelligenceNetwork:
         print()
 
     # =============================================================
+    # CONTROLLED STAGE-1 FLOOD SCENARIO
+    # =============================================================
+
+    def set_scenario(self, phase):
+        """
+        Set a deterministic flood scenario for the Stage-1
+        demonstration.
+
+        Phases:
+
+            NORMAL
+                Background conditions.
+
+            DEVELOPING
+                Rainfall increases and soil moisture rises.
+
+            SEVERE
+                Sustained heavy rainfall and wet soil.
+
+            CRITICAL
+                Extreme rainfall and saturated soil.
+
+            RECOVERY
+                Rainfall decreases.
+        """
+
+        valid_phases = [
+            "NORMAL",
+            "DEVELOPING",
+            "SEVERE",
+            "CRITICAL",
+            "RECOVERY",
+        ]
+
+        if phase not in valid_phases:
+            raise ValueError(
+                f"Invalid scenario phase: {phase}. "
+                f"Use one of {valid_phases}"
+            )
+
+        self.scenario_phase = phase
+
+        if phase in [
+            "DEVELOPING",
+            "SEVERE",
+            "CRITICAL",
+        ]:
+            if not self.rainstorm_active:
+                self.start_rainstorm()
+
+        else:
+            if self.rainstorm_active:
+                self.stop_rainstorm()
+
+        print(
+            f"[SCENARIO] Flood demonstration phase: "
+            f"{self.scenario_phase}"
+        )
+
+    def get_controlled_conditions(self, node):
+        """
+        Return deterministic rainfall and soil-moisture
+        conditions for the Stage-1 flood demonstration.
+
+        Temperature, humidity and wind remain generated by
+        RandomEnvironment.
+
+        The node parameter is intentionally retained so that
+        node-specific scenario behavior can be introduced later.
+        """
+
+        phase = self.scenario_phase
+
+        if phase == "NORMAL":
+            rainfall = 5.0
+            soil_moisture = 45.0
+
+        elif phase == "DEVELOPING":
+            rainfall = 35.0
+            soil_moisture = 65.0
+
+        elif phase == "SEVERE":
+            rainfall = 80.0
+            soil_moisture = 85.0
+
+        elif phase == "CRITICAL":
+            rainfall = 120.0
+            soil_moisture = 100.0
+
+        elif phase == "RECOVERY":
+            rainfall = 5.0
+            soil_moisture = 80.0
+
+        else:
+            rainfall = 5.0
+            soil_moisture = 45.0
+
+        return {
+            "rainfall_mm_h": rainfall,
+            "soil_moisture_pct": soil_moisture,
+        }
+
+    # =============================================================
     # ENVIRONMENT GENERATION
     # =============================================================
 
@@ -295,17 +398,50 @@ class EnvironmentalIntelligenceNetwork:
         """
         Generate the current background environment for a node.
 
-        Returns:
-            Dictionary containing environmental conditions.
+        Temperature, humidity and wind come from the normal
+        RandomEnvironment generator.
+
+        Rainfall and soil moisture are controlled by the
+        Stage-1 demonstration scenario.
         """
 
-        environment = self.environments[node.node_id].step()
+        environment = self.environments[
+            node.node_id
+        ].step()
 
-        node.rainfall_mm_h = environment["rainfall_mm_h"]
-        node.temperature_c = environment["temperature_c"]
-        node.humidity_pct = environment["humidity_pct"]
-        node.soil_moisture_pct = environment["soil_moisture_pct"]
-        node.wind_speed_m_s = environment["wind_speed_m_s"]
+        # ---------------------------------------------------------
+        # Keep background environmental variables dynamic.
+        # ---------------------------------------------------------
+
+        node.temperature_c = environment[
+            "temperature_c"
+        ]
+
+        node.humidity_pct = environment[
+            "humidity_pct"
+        ]
+
+        node.wind_speed_m_s = environment[
+            "wind_speed_m_s"
+        ]
+
+        # ---------------------------------------------------------
+        # Apply deterministic flood-demo conditions.
+        # ---------------------------------------------------------
+
+        controlled = self.get_controlled_conditions(
+            node
+        )
+
+        node.rainfall_mm_h = controlled[
+            "rainfall_mm_h"
+        ]
+
+        node.soil_moisture_pct = controlled[
+            "soil_moisture_pct"
+        ]
+
+        environment.update(controlled)
 
         return environment
 
@@ -316,22 +452,90 @@ class EnvironmentalIntelligenceNetwork:
     def generate_flood_state(self, node):
         """
         Generate the flood-related observation for a node.
+
+        The normal flood behavior is generated by FloodEngine.
+
+        During the RECOVERY phase, a controlled drainage/recession
+        effect is applied so that water levels gradually decrease.
+        This keeps the Stage-1 demonstration environmentally coherent
+        without modifying the underlying FloodEngine implementation.
         """
 
-        flood_engine = self.flood_engines[node.node_id]
+        flood_engine = self.flood_engines[
+            node.node_id
+        ]
+
+        # ---------------------------------------------------------
+        # Normal flood-engine calculation
+        # ---------------------------------------------------------
 
         flood_state = flood_engine.step(
             rainfall_mm_h=node.rainfall_mm_h,
             soil_moisture_pct=node.soil_moisture_pct,
         )
 
-        node.water_level_m = flood_state["water_level_m"]
+        water_level = flood_state[
+            "water_level_m"
+        ]
 
-        # Store the physical flood-engine rate temporarily.
-        #
-        # TemporalEngine will independently calculate the rate
-        # from node history.
-        node.rate_of_rise_m_h = flood_state["rate_of_rise_m_h"]
+        rate_of_rise = flood_state[
+            "rate_of_rise_m_h"
+        ]
+
+        # ---------------------------------------------------------
+        # RECOVERY / DRAINAGE
+        # ---------------------------------------------------------
+
+        if self.scenario_phase == "RECOVERY":
+
+            recovery_rate_m_h = 0.08
+
+            previous_level = water_level
+
+            water_level = max(
+                0.0,
+                water_level - recovery_rate_m_h,
+            )
+
+            # Keep FloodEngine synchronized with the adjusted
+            # water level so the next timestep starts from the
+            # recovered level.
+
+            flood_engine.water_level_m = water_level
+
+            flood_engine.previous_water_level = (
+                previous_level
+            )
+
+            rate_of_rise = (
+                water_level - previous_level
+            )
+
+            flood_state["water_level_m"] = round(
+                water_level,
+                3,
+            )
+
+            flood_state["rate_of_rise_m_h"] = round(
+                rate_of_rise,
+                3,
+            )
+
+            flood_state["hazard_state"] = (
+                "RECEDING"
+            )
+
+        # ---------------------------------------------------------
+        # Update virtual node
+        # ---------------------------------------------------------
+
+        node.water_level_m = flood_state[
+            "water_level_m"
+        ]
+
+        node.rate_of_rise_m_h = flood_state[
+            "rate_of_rise_m_h"
+        ]
 
         return flood_state
 
@@ -358,27 +562,30 @@ class EnvironmentalIntelligenceNetwork:
         # 1. Temporal analysis
         # ---------------------------------------------------------
 
-        temporal_features = self.temporal_engine.analyze(node)
+        temporal_features = self.temporal_engine.analyze(
+            node
+        )
 
         # ---------------------------------------------------------
         # 2. Sensor fusion
-        #
-        # SensorFusion returns a FLOAT.
         # ---------------------------------------------------------
 
         evidence_score = self.sensor_fusion.calculate_evidence(
             node.water_level_m,
             node.rainfall_mm_h,
-            temporal_features["rate_of_rise_m_h"],
+            temporal_features[
+                "rate_of_rise_m_h"
+            ],
             node.soil_moisture_pct,
-            temporal_features["persistence"],
+            temporal_features[
+                "persistence"
+            ],
         )
 
         evidence_score = float(evidence_score)
 
         # ---------------------------------------------------------
-        # 3. Convert fusion output to the structure expected
-        #    by RiskEngine.
+        # 3. Convert fusion output to RiskEngine structure
         # ---------------------------------------------------------
 
         fusion_result = {
@@ -403,13 +610,21 @@ class EnvironmentalIntelligenceNetwork:
             risk_result["risk_score"]
         )
 
-        node.risk_level = risk_result["risk_level"]
+        node.risk_level = risk_result[
+            "risk_level"
+        ]
 
-        node.trend = risk_result["trend"]
+        node.trend = risk_result[
+            "trend"
+        ]
 
-        node.hazard_state = risk_result["hazard_state"]
+        node.hazard_state = risk_result[
+            "hazard_state"
+        ]
 
-        node.event_state = risk_result["event_state"]
+        node.event_state = risk_result[
+            "event_state"
+        ]
 
         return {
             "temporal": temporal_features,
@@ -426,6 +641,7 @@ class EnvironmentalIntelligenceNetwork:
         Convert the local risk decision into an event.
 
         EventManager decides whether to:
+
             - create an event
             - update an event
             - clear an event
@@ -452,8 +668,11 @@ class EnvironmentalIntelligenceNetwork:
         Create a CSV-compatible sensor/intelligence record.
 
         This combines:
+
             RAW SENSOR DATA
+
         with:
+
             ACTIONABLE LOCAL INTELLIGENCE
         """
 
@@ -510,22 +729,34 @@ class EnvironmentalIntelligenceNetwork:
             ),
 
             "rate_of_rise_m_h": round(
-                temporal_features["rate_of_rise_m_h"],
+                temporal_features[
+                    "rate_of_rise_m_h"
+                ],
                 4,
             ),
 
-            "trend": temporal_features["trend"],
+            "trend": temporal_features[
+                "trend"
+            ],
 
             "risk_score": round(
-                float(risk_result["risk_score"]),
+                float(
+                    risk_result["risk_score"]
+                ),
                 4,
             ),
 
-            "risk_level": risk_result["risk_level"],
+            "risk_level": risk_result[
+                "risk_level"
+            ],
 
-            "hazard_state": risk_result["hazard_state"],
+            "hazard_state": risk_result[
+                "hazard_state"
+            ],
 
-            "event_state": risk_result["event_state"],
+            "event_state": risk_result[
+                "event_state"
+            ],
 
             "network_status": self.network.get_status(),
 
@@ -544,7 +775,9 @@ class EnvironmentalIntelligenceNetwork:
         WATCH, WARNING and CRITICAL are considered actionable.
         """
 
-        return risk_result["risk_level"] in [
+        return risk_result[
+            "risk_level"
+        ] in [
             "WATCH",
             "WARNING",
             "CRITICAL",
@@ -558,7 +791,7 @@ class EnvironmentalIntelligenceNetwork:
         """
         Store an event locally while the network is offline.
 
-        EventBuffer is intentionally used through its actual API:
+        EventBuffer is used through its actual API:
             add()
         """
 
@@ -573,18 +806,19 @@ class EnvironmentalIntelligenceNetwork:
 
     def synchronize_buffer(self):
         """
-        Synchronize locally buffered events after network recovery.
+        Synchronize locally buffered events after network
+        recovery.
 
-        Events are transmitted through NetworkSimulator and then
-        written to the CSV data store.
+        Events are transmitted through NetworkSimulator and
+        then written to the CSV data store.
         """
 
         buffered_events = self.event_buffer.get_all()
 
         if not buffered_events:
-
-            print("[SYNC] No buffered events to synchronize.")
-
+            print(
+                "[SYNC] No buffered events to synchronize."
+            )
             return
 
         print()
@@ -721,7 +955,9 @@ class EnvironmentalIntelligenceNetwork:
 
             print("  Reasons:")
 
-            for reason in risk_result["reasons"]:
+            for reason in risk_result[
+                "reasons"
+            ]:
 
                 print(
                     f"    - {reason}"
@@ -740,17 +976,26 @@ class EnvironmentalIntelligenceNetwork:
 
         print()
         print("=" * 80)
+
         print(
             f"TIME STEP {self.step_number}"
         )
+
         print(
             f"SIMULATION TIME: "
             f"{self.simulation_time.isoformat()}"
         )
+
+        print(
+            f"SCENARIO: "
+            f"{self.scenario_phase}"
+        )
+
         print(
             f"NETWORK: "
             f"{self.network.get_status()}"
         )
+
         print("=" * 80)
 
         # ---------------------------------------------------------
@@ -793,9 +1038,6 @@ class EnvironmentalIntelligenceNetwork:
 
             # -----------------------------------------------------
             # Store raw observation in node history
-            #
-            # This must happen before temporal analysis so that
-            # the current reading is available.
             # -----------------------------------------------------
 
             node.add_reading()
@@ -864,11 +1106,10 @@ class EnvironmentalIntelligenceNetwork:
                     risk_result
                 ):
 
-                    # Buffer the actionable local event.
+                    # Buffer actionable local event.
                     #
                     # Use the event generated by EventManager
                     # when available. Otherwise use the record.
-                    #
 
                     event_to_buffer = (
                         event
@@ -899,6 +1140,11 @@ class EnvironmentalIntelligenceNetwork:
 
         print(
             f"STEP {self.step_number} COMPLETE"
+        )
+
+        print(
+            f"Scenario: "
+            f"{self.scenario_phase}"
         )
 
         print(
@@ -946,7 +1192,9 @@ class EnvironmentalIntelligenceNetwork:
 
         print()
         print("=" * 80)
+
         print("SIMULATION COMPLETE")
+
         print("=" * 80)
 
         print(
@@ -980,4 +1228,41 @@ if __name__ == "__main__":
 
     simulation = EnvironmentalIntelligenceNetwork()
 
-    simulation.run(steps=5)
+    print()
+    print("=" * 80)
+    print("STAGE-1 CONTROLLED FLOOD DEMONSTRATION")
+    print("=" * 80)
+    print()
+
+    # -------------------------------------------------------------
+    # PHASE 1: NORMAL
+    # -------------------------------------------------------------
+
+    simulation.set_scenario("NORMAL")
+    simulation.run(steps=3)
+
+    # -------------------------------------------------------------
+    # PHASE 2: DEVELOPING FLOOD
+    # -------------------------------------------------------------
+
+    simulation.set_scenario("DEVELOPING")
+    simulation.run(steps=4)
+
+    # -------------------------------------------------------------
+    # PHASE 3: SEVERE FLOOD
+    # -------------------------------------------------------------
+
+    simulation.set_scenario("SEVERE")
+    simulation.run(steps=6)
+
+    # -------------------------------------------------------------
+    # PHASE 4: CRITICAL FLOOD
+    # -------------------------------------------------------------
+
+    simulation.set_scenario("CRITICAL")
+    simulation.run(steps=15)
+
+    print()
+    print("=" * 80)
+    print("STAGE-1 FLOOD SCENARIO FINISHED")
+    print("=" * 80)
