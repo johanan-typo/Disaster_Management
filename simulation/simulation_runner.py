@@ -36,6 +36,14 @@ The local risk engine is a transparent engineering rule set,
 not a trained prediction model.
 """
 
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from datetime import datetime, timedelta
 
 from engines.node_model import VirtualNode
@@ -45,7 +53,7 @@ from engines.flood_engine import FloodEngine
 from intelligence.temporal_engine import TemporalEngine
 from intelligence.sensor_fusion import SensorFusion
 from intelligence.risk_engine import RiskEngine
-
+from intelligence.edge_ai import EdgeAI
 from communication.network_simulator import NetworkSimulator
 from communication.event_buffer import EventBuffer
 from communication.event_manager import EventManager
@@ -99,6 +107,35 @@ class EnvironmentalIntelligenceNetwork:
         self.sensor_fusion = SensorFusion()
 
         self.risk_engine = RiskEngine()
+
+        # ---------------------------------------------------------
+        # LOCAL EDGE AI
+        # ---------------------------------------------------------
+
+        # RiskEngine remains the authoritative deterministic
+        # intelligence layer.
+        #
+        # Needle only selects a structured local response
+        # for an already-computed risk state.
+
+        self.edge_ai = EdgeAI()
+
+        # Latest Needle result for each node.
+        self.last_edge_ai_results = {}
+
+        # ---------------------------------------------------------
+        # OFFLINE DATA BUFFER
+        # ---------------------------------------------------------
+
+        # Full CSV-compatible sensor/intelligence records are
+        # retained while the network is offline.
+        #
+        # This is separate from EventBuffer:
+        #
+        #   pending_csv_records -> sensor/intelligence data
+        #   event_buffer        -> actionable hazard events
+
+        self.pending_csv_records = []
 
         # ---------------------------------------------------------
         # COMMUNICATION / RESILIENCE
@@ -633,6 +670,47 @@ class EnvironmentalIntelligenceNetwork:
         }
 
     # =============================================================
+    # LOCAL EDGE AI
+    # =============================================================
+
+    def process_edge_ai(self, node, risk_result):
+        """
+        Run Needle Edge AI for an actionable local risk state.
+
+        RiskEngine remains authoritative.
+
+        Needle does not:
+            - calculate flood physics
+            - calculate risk score
+            - replace sensor fusion
+            - replace RiskEngine
+
+        Needle only selects the structured local response.
+        """
+
+        if not self.is_actionable(risk_result):
+            return None
+
+        try:
+            result = self.edge_ai.analyze_node(node)
+
+        except Exception as exc:
+            result = {
+                "ai_active": False,
+                "confidence": 0.0,
+                "tool_called": False,
+                "action_executed": False,
+                "response": None,
+                "reasoning": None,
+                "error": str(exc),
+                "status": "AI_ERROR",
+            }
+
+        self.last_edge_ai_results[node.node_id] = result
+
+        return result
+
+    # =============================================================
     # EVENT PROCESSING
     # =============================================================
 
@@ -806,18 +884,28 @@ class EnvironmentalIntelligenceNetwork:
 
     def synchronize_buffer(self):
         """
-        Synchronize locally buffered events after network
-        recovery.
+        Synchronize all locally retained data after network recovery.
 
-        Events are transmitted through NetworkSimulator and
-        then written to the CSV data store.
+        Two independent stores are synchronized:
+
+            1. pending_csv_records
+               Complete sensor/intelligence records.
+
+            2. event_buffer
+               Actionable hazard events.
+
+        Both are cleared only after successful transmission/write.
         """
+
+        csv_records = list(
+            self.pending_csv_records
+        )
 
         buffered_events = self.event_buffer.get_all()
 
-        if not buffered_events:
+        if not csv_records and not buffered_events:
             print(
-                "[SYNC] No buffered events to synchronize."
+                "[SYNC] No buffered data to synchronize."
             )
             return
 
@@ -825,46 +913,87 @@ class EnvironmentalIntelligenceNetwork:
         print("=" * 80)
         print(
             f"[SYNC] Synchronizing "
-            f"{len(buffered_events)} buffered event(s)..."
+            f"{len(csv_records)} CSV record(s) "
+            f"and "
+            f"{len(buffered_events)} event(s)..."
         )
         print("=" * 80)
 
-        synchronized = []
+        # ---------------------------------------------------------
+        # 1. Synchronize CSV records
+        # ---------------------------------------------------------
+
+        csv_synchronized = 0
+
+        for record in csv_records:
+
+            try:
+                self.csv_logger.log_data(
+                    record
+                )
+
+                csv_synchronized += 1
+
+            except Exception as exc:
+
+                print(
+                    f"[SYNC] CSV synchronization failed: "
+                    f"{exc}"
+                )
+
+                break
+
+        if csv_synchronized == len(csv_records):
+
+            self.pending_csv_records.clear()
+
+        # ---------------------------------------------------------
+        # 2. Synchronize actionable events
+        # ---------------------------------------------------------
+
+        event_synchronized = 0
 
         for event in buffered_events:
 
-            transmitted = self.network.transmit(
-                event
-            )
+            try:
 
-            if transmitted:
-
-                self.csv_logger.log_data(
+                transmitted = self.network.transmit(
                     event
                 )
 
-                synchronized.append(
-                    event
+                if transmitted:
+                    event_synchronized += 1
+
+            except Exception as exc:
+
+                print(
+                    f"[SYNC] Event synchronization failed: "
+                    f"{exc}"
                 )
 
-        if synchronized:
+                break
 
-            # Remove successfully synchronized events.
+        if event_synchronized == len(buffered_events):
+
             self.event_buffer.clear()
 
-            print(
-                f"[SYNC] Successfully synchronized "
-                f"{len(synchronized)} event(s)."
-            )
-
-        else:
-
-            print(
-                "[SYNC] No events were synchronized."
-            )
+        print(
+            f"[SYNC] CSV records synchronized: "
+            f"{csv_synchronized}/{len(csv_records)}"
+        )
 
         print(
-            f"[SYNC] Remaining buffer: "
+            f"[SYNC] Events synchronized: "
+            f"{event_synchronized}/{len(buffered_events)}"
+        )
+
+        print(
+            f"[SYNC] Remaining CSV records: "
+            f"{len(self.pending_csv_records)}"
+        )
+
+        print(
+            f"[SYNC] Remaining events: "
             f"{self.event_buffer.count()}"
         )
 
@@ -950,6 +1079,24 @@ class EnvironmentalIntelligenceNetwork:
             f"  Edge Processing: "
             f"{node.edge_processing}"
         )
+
+        edge_result = self.last_edge_ai_results.get(
+            node.node_id
+        )
+
+        if edge_result is not None:
+
+            print(
+                f"  Needle Edge AI : "
+                f"{edge_result['status']}"
+            )
+
+            if edge_result["response"] is not None:
+
+                print(
+                    f"  Local Response : "
+                    f"{edge_result['response']}"
+                )
 
         if risk_result["reasons"]:
 
@@ -1059,6 +1206,15 @@ class EnvironmentalIntelligenceNetwork:
             ]
 
             # -----------------------------------------------------
+            # Local Needle Edge AI
+            # -----------------------------------------------------
+
+            edge_ai_result = self.process_edge_ai(
+                node,
+                risk_result,
+            )
+
+            # -----------------------------------------------------
             # Event management
             # -----------------------------------------------------
 
@@ -1100,16 +1256,28 @@ class EnvironmentalIntelligenceNetwork:
 
             else:
 
-                # Local processing continues.
+                # -------------------------------------------------
+                # OFFLINE MODE
+                # -------------------------------------------------
+                #
+                # CSV output intentionally stops while offline.
+                #
+                # Local processing DOES NOT stop.
+                #
+                # The complete CSV-compatible record is retained
+                # locally for store-and-forward synchronization.
+
+                self.pending_csv_records.append(
+                    record
+                )
+
+                # -------------------------------------------------
+                # Buffer actionable hazard event
+                # -------------------------------------------------
 
                 if self.is_actionable(
                     risk_result
                 ):
-
-                    # Buffer actionable local event.
-                    #
-                    # Use the event generated by EventManager
-                    # when available. Otherwise use the record.
 
                     event_to_buffer = (
                         event
@@ -1155,6 +1323,11 @@ class EnvironmentalIntelligenceNetwork:
         print(
             f"Buffered Events: "
             f"{self.event_buffer.count()}"
+        )
+
+        print(
+            f"Pending CSV Records: "
+            f"{len(self.pending_csv_records)}"
         )
 
         print("-" * 80)
@@ -1220,6 +1393,22 @@ class EnvironmentalIntelligenceNetwork:
         print("=" * 80)
 
 
+    # =============================================================
+    # CLEANUP
+    # =============================================================
+
+    def close(self):
+        """
+        Release the local Needle runtime.
+        """
+
+        if self.edge_ai is not None:
+
+            self.edge_ai.close()
+
+            self.edge_ai = None
+
+
 # =================================================================
 # MAIN
 # =================================================================
@@ -1261,6 +1450,8 @@ if __name__ == "__main__":
 
     simulation.set_scenario("CRITICAL")
     simulation.run(steps=15)
+
+    simulation.close()
 
     print()
     print("=" * 80)

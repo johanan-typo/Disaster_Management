@@ -12,3 +12,14 @@ __pycache__/
 
 storage/buffered_events.json
 data/sensor_data.csv
+
+*.before-*
+.~lock.*
+
+# Frontend dependencies
+node_modules/
+dashboard/frontend/node_modules/
+
+# Frontend build output
+dist/
+dashboard/frontend/dist/
